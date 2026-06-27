@@ -7,14 +7,18 @@
             </svg>
         </button>
         <a class="header-brand d-md-none" href="#">
-            @if (session()->has('logo'))
+            @if (session()->has('Logo'))
                 <img style="height:35px"
-                    src="{{ url('storage/logo/' . session('logo')[0] . session('logo')[1] . '/' . session('logo')[2] . session('logo')[3] . '/' . session('logo')) }}"
-                    alt="" srcset="">
+                    src="{{ url('uploads/Logo/' . session('Logo')) }}"
+                    alt="{{ config('app.name') }}"
+                    srcset="">
             @endif
         </a>
         @auth
             <ul class="header-nav ms-auto">
+                <li class="nav-item d-flex align-items-center">
+                    @include('layouts.includes.theme-toggle')
+                </li>
                 <li class="nav-item">
                     @role('super|Manager')
                         <a class="nav-link py-0" href="{{ route('dashboard') }}">

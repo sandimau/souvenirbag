@@ -11,7 +11,3 @@
 a.popup {
     text-decoration: none;
 }
-
-a.popup:hover {
-    text-decoration: underline;
-}

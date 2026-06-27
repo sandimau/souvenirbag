@@ -1,7 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
+    <script>
+        (function () {
+            var theme = localStorage.getItem('sb-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        })();
+    </script>
     <base href="./">
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -13,17 +20,16 @@
             {{ config('app.name', 'sablonku') }}
         @endif
     </title>
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#6366f1">
     @stack('before-styles')
-    <link rel="stylesheet" href="{{ asset('build/assets/app-c3db2d24.css') }}">
-    {{-- @vite('resources/sass/app.scss') --}}
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css" />
+    @vite(['resources/sass/app.scss', 'resources/js/app.js'])
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     @stack('after-styles')
 </head>
 
 <body>
-    <div class="sidebar sidebar-dark sidebar-fixed" id="sidebar">
+    <div class="sidebar sidebar-light sidebar-fixed" id="sidebar">
         <div class="sidebar-brand d-none d-md-flex">
             @if (session()->has('Logo'))
                 <img style="height:50px"
@@ -88,7 +94,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous">
     </script>
-    {{-- @vite('resources/js/app.js') --}}
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"></script>
     @stack('after-scripts')
     <!-- / Scripts -->
