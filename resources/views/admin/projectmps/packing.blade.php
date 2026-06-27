@@ -6,9 +6,9 @@
 
 @section('content')
     <header class="header mb-4">
-        <div class="container-fluid">
+        <div class="container-fluid d-flex justify-content-end align-items-center gap-3">
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb my-0 ms-2">
+                <ol class="breadcrumb my-0">
                     <li class="breadcrumb-item">
                         <b>Packing Marketplace</b>
                     </li>
@@ -37,8 +37,7 @@
                                 id="{{ Str::slug($statusKey) }}-tab" data-bs-toggle="tab"
                                 data-bs-target="#tab-{{ Str::slug($statusKey) }}" type="button" role="tab"
                                 aria-controls="tab-{{ Str::slug($statusKey) }}"
-                                aria-selected="{{ $loop->first ? 'true' : 'false' }}"
-                                style="border-left: 4px solid {{ $statusData['warna'] }};">
+                                aria-selected="{{ $loop->first ? 'true' : 'false' }}">
                                 {{ $statusData['nama'] }}
                                 <span class="badge bg-success rounded-pill">{{ $count }}</span>
                             </button>

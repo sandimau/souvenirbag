@@ -6,9 +6,9 @@
 
 @section('content')
     <header class="header mb-4">
-        <div class="container-fluid">
+        <div class="container-fluid d-flex justify-content-end align-items-center gap-3">
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb my-0 ms-2">
+                <ol class="breadcrumb my-0">
                     <li class="breadcrumb-item">
                         <b>Dashboard Marketplace Custom</b>
                     </li>
@@ -49,8 +49,7 @@
                                 <button class="nav-link {{ $loop->first ? 'active' : '' }} nav-nonaktif"
                                     id="{{ $item->nama }}-tab" data-bs-toggle="tab"
                                     data-bs-target="#{{ $item->nama }}" type="button" role="tab"
-                                    aria-controls="{{ $item->nama }}" aria-selected="false"
-                                    style="border-left: 4px solid {{ $item->warna ?? '#ccc' }};">
+                                    aria-controls="{{ $item->nama }}" aria-selected="false">
                                     {{ $item->nama }}
                                     <span class="badge bg-success rounded-pill">{{ $count }}</span>
                                 </button>

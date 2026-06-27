@@ -32,7 +32,7 @@
     $openConfig = $navOpen('roles*', 'permissions*', 'admin/produksis*', 'admin/speks*', 'admin/pemproses*', 'admin/sistem*', 'admin/linkPages*');
 @endphp
 
-<ul class="sidebar-nav" data-coreui="navigation" data-simplebar>
+<ul class="sidebar-nav compact" data-coreui="navigation" data-simplebar>
     <li class="nav-group{{ $openProduksiOrder ? ' show' : '' }}" aria-expanded="{{ $openProduksiOrder ? 'true' : 'false' }}">
         <a class="nav-link nav-group-toggle" href="#">
             <svg class="nav-icon">
