@@ -1,5 +1,5 @@
 <header class="header header-sticky mb-4">
-    <div class="container-fluid">
+    <div class="container-fluid d-flex align-items-center">
         <button class="header-toggler px-md-0 me-md-3" type="button"
             onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()">
             <svg class="icon icon-lg">
@@ -15,34 +15,30 @@
             @endif
         </a>
         @auth
-            <ul class="header-nav ms-auto">
+            <ul class="header-nav ms-auto d-flex align-items-center gap-2 mb-0">
                 <li class="nav-item d-flex align-items-center">
-                    @include('layouts.includes.theme-toggle')
-                </li>
-                <li class="nav-item">
-                    @role('super|Manager')
-                        <a class="nav-link py-0" href="{{ route('dashboard') }}">
-                            <svg class="icon me-2">
-                                <use xlink:href="{{ asset('icons/coreui.svg#cil-refresh') }}"></use>
-                            </svg>
-                            <button class="btn btn-primary">
-                                Dashboard <span class="badge badge-primary"></span>
-                            </button>
-                        </a>
-                    @endrole
-                </li>
-                <li class="nav-item">
-                    <div class="nav-link py-0">
+                    <div class="header-date">
                         {{ date('d-m-Y') }}
                     </div>
                 </li>
-                <li class="nav-item dropdown ms-auto">
-                    <a class="nav-link py-0" data-coreui-toggle="dropdown" href="#" role="button"
+                @role('super|Manager')
+                    <li class="nav-item d-flex align-items-center">
+                        <a class="btn btn-primary rounded-pill text-decoration-none text-white"
+                            href="{{ route('dashboard') }}">
+                            Dashboard
+                        </a>
+                    </li>
+                @endrole
+                <li class="nav-item d-flex align-items-center">
+                    @include('layouts.includes.theme-toggle')
+                </li>
+                <li class="nav-item dropdown d-flex align-items-center">
+                    <a class="nav-link header-user-trigger py-0" data-coreui-toggle="dropdown" href="#" role="button"
                         aria-haspopup="true" aria-expanded="false">
                         <div class="avatar">
-                            <img class="avatar-img" src="{{ asset('img/default-avatar.jpg') }}">
+                            <img class="avatar-img" src="{{ asset('img/default-avatar.jpg') }}" alt="Avatar">
                         </div>
-                        {{ Auth::user()->name }}
+                        <span class="header-user-name">{{ Auth::user()->name }}</span>
                     </a>
                     <div style="z-index: 5" class="dropdown-menu dropdown-menu-end pt-0">
                         <a class="dropdown-item" href="{{ route('whattodo') }}">
