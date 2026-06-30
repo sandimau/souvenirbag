@@ -704,6 +704,7 @@ class MarketplaceController extends Controller
                 $header = $marketplace->barisHeader ?? 1;
 
                 $order = $orderdetil = $stok = $inputStok = $inputBatal =  $batal = [];
+                $orderSaldoByNota = $orderLineTotalByNota = [];
                 $input = $notaTerakhir = false;
                 $awal = true;
                 $nota_skr = 0;
@@ -771,8 +772,8 @@ class MarketplaceController extends Controller
                         $tanggal = Carbon::createFromFormat($marketplace->formatTanggal, $tanggal)->toDateTimeString();
                         $nama = $baris[$marketplace->nama];
                         $tema = $baris[$marketplace->tema];
-                        $total = $baris[$marketplace->saldo];
-                        $total = str_replace(".", "", $total);
+                        $totalSaldo = str_replace("Rp ", "", $baris[$marketplace->saldo] ?? '');
+                        $totalSaldo = str_replace(".", "", $totalSaldo);
 
                         $jumlah = $baris[$marketplace->jumlah];
                         $harga = str_replace("Rp ", "", $baris[$marketplace->harga]);
@@ -780,9 +781,12 @@ class MarketplaceController extends Controller
 
                         if ($status == $marketplace->batal) {
                             $produksi_id = $batal_id;
-                            $total = 0;
-                        } else
+                        } else {
                             $produksi_id = $finish_id;
+                            if ($totalSaldo !== '' && is_numeric($totalSaldo) && (float) $totalSaldo > 0) {
+                                $orderSaldoByNota[$nota] = (float) $totalSaldo;
+                            }
+                        }
 
                         $deathline = $this->parseDeathline(
                             $this->getCsvColumnValue($baris, $marketplace->deathline),
@@ -802,7 +806,7 @@ class MarketplaceController extends Controller
 
                             $order[] = array(
                                 'kontak_id' => $id_shopee,
-                                'total' => $total,
+                                'total' => 0,
                                 'nota' => $nota,
                                 'created_at' => $tanggal,
                                 'konsumen_detail' => $nama,
@@ -861,12 +865,17 @@ class MarketplaceController extends Controller
                             'deathline' => $deathline
                         );
 
+                        // kolom saldo di CSV Shopee sering kosong pada baris non-custom, hitung dari harga x jumlah
+                        if ($status != $marketplace->batal && !$orderCustom) {
+                            $orderLineTotalByNota[$nota] = ($orderLineTotalByNota[$nota] ?? 0) + ((float) $harga * (int) $jumlah);
+                        }
+
                         ///////////////////kalo ordernya ga batal, dan produknya ada stoknya, input brapa yg terjual
                         if ($status != $marketplace->batal and $produk->stok == 1 and !$orderCustom)
                             $stok[] = array(
                                 'produk_id' => $produk->id,
                                 'jumlah' => $jumlah,
-                                'keterangan' => 'dibeli oleh ' . $nama
+                                'keterangan' => 'dibeli ' . $config->nama . ' (' . $nota . ')'
                             );
                     }
                     $nota_skr = $nota;
@@ -921,6 +930,15 @@ class MarketplaceController extends Controller
 
                 //////////////jika ada order baru/////////////////////////////////////////////////////////////
                 if ($input) {
+                    foreach ($order as $i => $orderRow) {
+                        $notaKey = $orderRow['nota'];
+                        if (isset($orderSaldoByNota[$notaKey]) && $orderSaldoByNota[$notaKey] > 0) {
+                            $order[$i]['total'] = $orderSaldoByNota[$notaKey];
+                        } elseif (isset($orderLineTotalByNota[$notaKey])) {
+                            $order[$i]['total'] = $orderLineTotalByNota[$notaKey];
+                        }
+                    }
+
                     DB::table('orders')->insert($order);
                     DB::table('order_details')->insert($orderdetil);
 
@@ -1621,39 +1639,51 @@ class MarketplaceController extends Controller
             }
         }
 
-        $omzetTikTok = DB::table('orders')
-            ->selectRaw('sum(total) as omzet, kontak_id')
-            ->whereNull('deleted_at')
-            ->where('marketplace', 1)
-            ->whereYear('created_at', $tahun_skr)
-            ->whereMonth('created_at', $bulanNum)
-            ->groupBy('kontak_id')
-            ->get()
-            ->pluck('omzet', 'kontak_id');
+        $kontakIds = $marketplaces->pluck('kontak_id')->filter()->unique()->values()->all();
 
-        $bayarResultTikTok = DB::table('orders')
-            ->selectRaw('sum(total) as total, sum(bayar) as bayar, kontak_id')
-            ->whereNull('deleted_at')
-            ->where('marketplace', 1)
-            ->whereYear('created_at', $tahun_skr)
-            ->whereMonth('created_at', $bulanNum)
-            ->where('bayar', '>', 0)
-            ->groupBy('kontak_id')
-            ->get();
-        $totalTikTok = $bayarResultTikTok->pluck('total', 'kontak_id');
-        $bayarTikTok = $bayarResultTikTok->pluck('bayar', 'kontak_id');
+        $omzetOrders = collect();
+        $bayarOrders = collect();
+        $totalOrders = collect();
+        $hppOrders = collect();
 
-        $hppTikTok = DB::table('orders')
-            ->join('order_details', 'orders.id', '=', 'order_details.order_id')
-            ->selectRaw('sum(order_details.hpp*order_details.jumlah) as hpp, orders.kontak_id')
-            ->whereNull('orders.deleted_at')
-            ->where('orders.marketplace', 1)
-            ->whereYear('orders.created_at', $tahun_skr)
-            ->whereMonth('orders.created_at', $bulanNum)
-            ->where('orders.bayar', '>', 0)
-            ->groupBy('orders.kontak_id')
-            ->get()
-            ->pluck('hpp', 'kontak_id');
+        if (!empty($kontakIds)) {
+            $omzetOrders = DB::table('orders')
+                ->selectRaw('sum(total) as omzet, kontak_id')
+                ->whereNull('deleted_at')
+                ->where('marketplace', 1)
+                ->whereIn('kontak_id', $kontakIds)
+                ->whereYear('created_at', $tahun_skr)
+                ->whereMonth('created_at', $bulanNum)
+                ->groupBy('kontak_id')
+                ->get()
+                ->pluck('omzet', 'kontak_id');
+
+            $bayarResultOrders = DB::table('orders')
+                ->selectRaw('sum(total) as total, sum(bayar) as bayar, kontak_id')
+                ->whereNull('deleted_at')
+                ->where('marketplace', 1)
+                ->whereIn('kontak_id', $kontakIds)
+                ->whereYear('created_at', $tahun_skr)
+                ->whereMonth('created_at', $bulanNum)
+                ->where('bayar', '>', 0)
+                ->groupBy('kontak_id')
+                ->get();
+            $totalOrders = $bayarResultOrders->pluck('total', 'kontak_id');
+            $bayarOrders = $bayarResultOrders->pluck('bayar', 'kontak_id');
+
+            $hppOrders = DB::table('orders')
+                ->join('order_details', 'orders.id', '=', 'order_details.order_id')
+                ->selectRaw('sum(order_details.hpp * order_details.jumlah) as hpp, orders.kontak_id')
+                ->whereNull('orders.deleted_at')
+                ->where('orders.marketplace', 1)
+                ->whereIn('orders.kontak_id', $kontakIds)
+                ->whereYear('orders.created_at', $tahun_skr)
+                ->whereMonth('orders.created_at', $bulanNum)
+                ->where('orders.bayar', '>', 0)
+                ->groupBy('orders.kontak_id')
+                ->get()
+                ->pluck('hpp', 'kontak_id');
+        }
 
         $omzet = collect();
         $bayar = collect();
@@ -1664,17 +1694,21 @@ class MarketplaceController extends Controller
             $mpId = $mp->id;
             $kontakId = $mp->kontak_id;
             $isShopee = strtolower($mp->marketplace ?? '') === 'shopee';
+            $orderOmzet = (float) ($omzetOrders[$kontakId] ?? 0);
+            $orderBayar = (float) ($bayarOrders[$kontakId] ?? 0);
+            $orderTotal = (float) ($totalOrders[$kontakId] ?? 0);
+            $orderHpp = (float) ($hppOrders[$kontakId] ?? 0);
 
             if ($isShopee) {
-                $omzet[$mpId] = $omzetByMpId[$mpId] ?? 0;
-                $bayar[$mpId] = $bayarByMpId[$mpId] ?? 0;
-                $total[$mpId] = $totalByMpId[$mpId] ?? 0;
-                $hpp[$mpId] = $hppByMpId[$mpId] ?? 0;
+                $omzet[$mpId] = ($omzetByMpId[$mpId] ?? 0) + $orderOmzet;
+                $bayar[$mpId] = ($bayarByMpId[$mpId] ?? 0) + $orderBayar;
+                $total[$mpId] = ($totalByMpId[$mpId] ?? 0) + $orderTotal;
+                $hpp[$mpId] = ($hppByMpId[$mpId] ?? 0) + $orderHpp;
             } else {
-                $omzet[$mpId] = $omzetTikTok[$kontakId] ?? 0;
-                $bayar[$mpId] = $bayarTikTok[$kontakId] ?? 0;
-                $total[$mpId] = $totalTikTok[$kontakId] ?? 0;
-                $hpp[$mpId] = $hppTikTok[$kontakId] ?? 0;
+                $omzet[$mpId] = $orderOmzet;
+                $bayar[$mpId] = $orderBayar;
+                $total[$mpId] = $orderTotal;
+                $hpp[$mpId] = $orderHpp;
             }
         }
 
@@ -1774,6 +1808,7 @@ class MarketplaceController extends Controller
                 }
 
                 $order = $orderdetil = $stok = $batal = [];
+                $orderSaldoByNota = $orderLineTotalByNota = [];
                 $input = false;
                 $notaTerakhir = false;
                 $nota_skr = 0;
@@ -1881,8 +1916,8 @@ class MarketplaceController extends Controller
                         $tanggal = Carbon::createFromFormat($marketplace->formatTanggal, $tanggal)->toDateTimeString();
                         $nama = $baris[$marketplace->nama];
                         $tema = $baris[$marketplace->tema];
-                        $total = $baris[$marketplace->saldo];
-                        $total = str_replace(".", "", $total);
+                        $totalSaldo = str_replace("Rp ", "", $baris[$marketplace->saldo] ?? '');
+                        $totalSaldo = str_replace(".", "", $totalSaldo);
 
                         $jumlah = $baris[$marketplace->jumlah];
                         $harga = str_replace("Rp ", "", $baris[$marketplace->harga]);
@@ -1890,9 +1925,12 @@ class MarketplaceController extends Controller
 
                         if ($status == $marketplace->batal) {
                             $produksi_id = $batal_id;
-                            $total = 0;
-                        } else
+                        } else {
                             $produksi_id = $finish_id;
+                            if ($totalSaldo !== '' && is_numeric($totalSaldo) && (float) $totalSaldo > 0) {
+                                $orderSaldoByNota[$nota] = (float) $totalSaldo;
+                            }
+                        }
 
                         // Tambah 7 hari dari $tanggal jika deathline kosong/gagal di-parse
                         $deathline = $this->parseDeathline(
@@ -1912,7 +1950,7 @@ class MarketplaceController extends Controller
 
                             $order[] = array(
                                 'kontak_id' => $id_shopee,
-                                'total' => $total,
+                                'total' => 0,
                                 'nota' => $nota,
                                 'created_at' => $tanggal,
                                 'konsumen_detail' => $nama,
@@ -1972,12 +2010,16 @@ class MarketplaceController extends Controller
                             'deathline' => $deathline
                         );
 
+                        if ($status != $marketplace->batal && !$orderCustom) {
+                            $orderLineTotalByNota[$nota] = ($orderLineTotalByNota[$nota] ?? 0) + ((float) $harga * (int) $jumlah);
+                        }
+
                         ///////////////////kalo ordernya ga batal, dan produknya ada stoknya, input brapa yg terjual
                         if ($status != $marketplace->batal and $produk->stok == 1 and !$orderCustom)
                             $stok[] = array(
                                 'produk_id' => $produk->id,
                                 'jumlah' => $jumlah,
-                                'keterangan' => 'dibeli oleh ' . $nama,
+                                'keterangan' => 'dibeli ' . $config->nama . ' (' . $nota . ')',
                                 'detail' => $nota
                             );
                     }
@@ -2033,6 +2075,15 @@ class MarketplaceController extends Controller
 
                 //////////////jika ada order baru/////////////////////////////////////////////////////////////
                 if ($input) {
+                    foreach ($order as $i => $orderRow) {
+                        $notaKey = $orderRow['nota'];
+                        if (isset($orderLineTotalByNota[$notaKey]) && $orderLineTotalByNota[$notaKey] > 0) {
+                            $order[$i]['total'] = $orderLineTotalByNota[$notaKey];
+                        } elseif (isset($orderSaldoByNota[$notaKey]) && $orderSaldoByNota[$notaKey] > 0) {
+                            $order[$i]['total'] = $orderSaldoByNota[$notaKey];
+                        }
+                    }
+
                     // Karena data dibaca dari bawah ke atas, perlu membalik urutan sebelum insert
                     // agar urutan data di database tetap sesuai dengan urutan asli file
                     $order = array_reverse($order);
